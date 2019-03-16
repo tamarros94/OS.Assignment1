@@ -97,33 +97,36 @@ runcmd(struct cmd *cmd)
     int i = 0;
     int path_start = 0;
     char curr_path[1024];
+    int cmd_size = 0;
+    char new_cmd[1024]; 
+    while(ecmd->argv[0][cmd_size]) cmd_size++;
+    printf(2,"cmd size: %d\n",cmd_size);
 
     while(i < ret){
      printf(2, "current char: %c\n", buf[i]);
      if(buf[i] == ':'){
-       printf(2, "reached ':'\n");
        curr_path[i] =  0x00;
 
-       char new_cmd[1024]; 
        int j=path_start;
+       int path_size=0;
        while(j<i){
-         new_cmd[j] = curr_path[j];
+         new_cmd[0] = curr_path[j];
          printf(2, "path: %c\n",new_cmd[j]);
          j++;
+         path_size++;
        }
        int k=0;
-       int cmd_size = 0;
-       while(ecmd->argv[0][cmd_size]) cmd_size++;
-       printf(2,"cmd size: %d\n",cmd_size);
 
        while(k < cmd_size){
-         new_cmd[j+k] = ecmd->argv[0][k];
-         printf(2, "cmd: %c\n",new_cmd[j+k]);
+         new_cmd[path_size+k] = ecmd->argv[0][k];
+         printf(2, "cmd: %c\n",new_cmd[k]);
          k++;
        }
-       printf(2, "new command: %s\n",new_cmd );
+
+       printf(2, "new command: %s\n",new_cmd);
        exec(new_cmd, ecmd->argv);
        memset(curr_path,0,1024);
+       memset(new_cmd,0,1024);
        path_start = i+1;
        }
      else curr_path[i] =  buf[i];
@@ -220,7 +223,7 @@ main(void)
 
 
  
-  char *path_content = "/:/bin/:";
+  char *path_content = "/bin/:/:";
 
   if (write(fd2, path_content, 8) < 8) {
         printf(2, "path write: Error");
