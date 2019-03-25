@@ -6,20 +6,10 @@ set(CMAKE_CXX_STANDARD 11)
 include_directories(.)
 
 add_executable(Assignment1
-        _cat
-        _echo
-        _forktest
-        _grep
-        _init
-        _kill
-        _ln
-        _ls
-        _mkdir
-        _rm
-        _sh
-        _stressfs
-        _wc
-        _zombie
+        cmake-build-debug/Assignment1.cbp
+        cmake-build-debug/cmake_install.cmake
+        cmake-build-debug/CMakeCache.txt
+        cmake-build-debug/Makefile
         asm.h
         ass1ds.cpp
         ass1ds.hpp
@@ -28,21 +18,13 @@ add_executable(Assignment1
         bootmain.c
         buf.h
         BUGS
-        cat.asm
         cat.c
-        cat.d
-        cat.o
-        cat.sym
         console.c
         cuth
         date.h
         defs.h
         dot-bochsrc
-        echo.asm
         echo.c
-        echo.d
-        echo.o
-        echo.sym
         elf.h
         entry.S
         entryother.S
@@ -50,58 +32,30 @@ add_executable(Assignment1
         fcntl.h
         file.c
         file.h
-        forktest.asm
         forktest.c
-        forktest.d
-        forktest.o
         fs.c
         fs.h
         gdbutil
-        grep.asm
         grep.c
-        grep.d
-        grep.o
-        grep.sym
         ide.c
-        init.asm
         init.c
-        init.d
-        init.o
-        init.sym
         initcode.S
         ioapic.c
         kalloc.c
         kbd.c
         kbd.h
         kernel.ld
-        kill.asm
         kill.c
-        kill.d
-        kill.o
-        kill.sym
         lapic.c
         LICENSE
-        ln.asm
         ln.c
-        ln.d
-        ln.o
-        ln.sym
         log.c
-        ls.asm
         ls.c
-        ls.d
-        ls.o
-        ls.sym
         main.c
         Makefile
         memide.c
         memlayout.h
-        mkdir.asm
         mkdir.c
-        mkdir.d
-        mkdir.o
-        mkdir.sym
-        mkfs
         mkfs.c
         mmu.h
         mp.c
@@ -110,31 +64,21 @@ add_executable(Assignment1
         param.h
         picirq.c
         pipe.c
+        policy.c
         pr.pl
         printf.c
-        printf.d
-        printf.o
         printpcs
         proc.c
         proc.h
         README
-        rm.asm
         rm.c
-        rm.d
-        rm.o
-        rm.sym
         runoff
         runoff.list
         runoff.spec
         runoff1
         sanity.c
-        sanity.d
         schedulinginterface.h
-        sh.asm
         sh.c
-        sh.d
-        sh.o
-        sh.sym
         show1
         sign.pl
         sleep1.p
@@ -144,11 +88,7 @@ add_executable(Assignment1
         spinlock.h
         spinp
         stat.h
-        stressfs.asm
         stressfs.c
-        stressfs.d
-        stressfs.o
-        stressfs.sym
         string.c
         swtch.S
         syscall.c
@@ -164,25 +104,11 @@ add_executable(Assignment1
         types.h
         uart.c
         ulib.c
-        ulib.d
-        ulib.o
         umalloc.c
-        umalloc.d
-        umalloc.o
         user.h
-        usys.d
-        usys.o
         usys.S
         vectors.pl
         vm.c
-        wc.asm
         wc.c
-        wc.d
-        wc.o
-        wc.sym
         x86.h
-        zombie.asm
-        zombie.c
-        zombie.d
-        zombie.o
-        zombie.sym)
+        zombie.c)

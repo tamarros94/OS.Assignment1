@@ -122,6 +122,7 @@ void            wakeup(void*);
 void            yield(void);
 int             detach(int);
 void            priority(int);
+void            policy(int);
 
 
 // swtch.S

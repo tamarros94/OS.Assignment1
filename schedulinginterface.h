@@ -37,7 +37,7 @@ typedef struct PriorityQueue {
 	boolean (*switchToRoundRobinPolicy)();
 
 	//Extracts a specific process from the queue.
-	//Use this function in policy 3 (Extended priority) once every 100 time quanta.
+	//Use this function in curr_policy 3 (Extended priority) once every 100 time quanta.
 	//This function returns true if it succeeded to extract the given process,
 	//it may fail if you didn't manage the data structures correctly.
 	boolean (*extractProc)(struct proc* p);

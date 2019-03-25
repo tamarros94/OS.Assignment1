@@ -113,3 +113,14 @@ sys_priority(void)
   priority(n);
   return 0;
 }
+
+int
+sys_policy(void)
+{
+  int n;
+
+  if(argint(0, &n) < 0)
+    return -1;
+  policy(n);
+  return 0;
+}

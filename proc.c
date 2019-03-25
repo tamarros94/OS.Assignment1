@@ -9,11 +9,11 @@
 #include "proc.h"
 #include "spinlock.h"
 
-#define RR    0
-#define PR    1
-#define EPR    2
+#define RR    1
+#define PR    2
+#define EPR    3
 
-int policy = EPR;
+int curr_policy = RR;
 long long time_quant = 0;
 
 extern PriorityQueue pq;
@@ -40,7 +40,7 @@ extern void trapret(void);
 static void wakeup1(void *chan);
 
 boolean enqueue(struct proc *p) {
-    switch (policy) {
+    switch (curr_policy) {
         case RR:
             return rrq.enqueue(p);
         case PR:
@@ -53,7 +53,7 @@ boolean enqueue(struct proc *p) {
 }
 
 struct proc *dequeue() {
-    switch (policy) {
+    switch (curr_policy) {
         case RR:
             return rrq.dequeue();
         case PR:
@@ -66,7 +66,7 @@ struct proc *dequeue() {
 }
 
 boolean isEmpty() {
-    switch (policy) {
+    switch (curr_policy) {
         case RR:
             return rrq.isEmpty();
         case PR:
@@ -234,9 +234,9 @@ userinit(void) {
 }
 
 struct proc *get_runnable_p() {
-    if (policy == EPR && time_quant % 100 == 0 && time_quant!=0) {
+    if (curr_policy == EPR && time_quant % 100 == 0 && time_quant != 0) {
         struct proc *tmp_p;
-        struct proc *p=0;
+        struct proc *p = 0;
         long long max_wait = -1;
 
         for (tmp_p = ptable.proc; tmp_p < &ptable.proc[NPROC]; tmp_p++) {
@@ -249,8 +249,7 @@ struct proc *get_runnable_p() {
         }
         pq.extractProc(p);
         return p;
-    }
-    else
+    } else
         return dequeue();
 }
 
@@ -672,9 +671,36 @@ procdump(void) {
 
 void
 priority(int priority) {
-    if (policy == PR) {
+    if (curr_policy == PR) {
         if (priority > 10 || priority < 1) panic("Illegal priority params");
     }
     struct proc *p = myproc();
     p->priority = priority;
+}
+
+void
+policy(int policy) {
+    acquire(&ptable.lock);
+    struct proc *tmp_p;
+    // RR is selected - init all accumulators to 0
+    if (policy == RR) {
+        for (tmp_p = ptable.proc; tmp_p < &ptable.proc[NPROC]; tmp_p++) {
+            tmp_p->accumulator = 0;
+        }
+        if (curr_policy != RR)
+            pq.switchToRoundRobinPolicy();
+
+    }
+    // PR is selected - change priority 0 to 1
+    if (policy == PR || policy == EPR) {
+        if (policy == PR) {
+            for (tmp_p = ptable.proc; tmp_p < &ptable.proc[NPROC]; tmp_p++) {
+                if (tmp_p->priority == 0) tmp_p->priority = 1;
+            }
+        }
+        if (curr_policy == RR)
+            rrq.switchToPriorityQueuePolicy();
+    }
+    curr_policy = policy;
+    release(&ptable.lock);
 }
