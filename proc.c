@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "schedulinginterface.h"
 #include "types.h"
 #include "defs.h"
@@ -11,62 +12,16 @@
 #define RR    0
 #define PR    1
 #define EPR    2
-extern int policy = PR;
+
+int policy = EPR;
+long long time_quant = 0;
 
 extern PriorityQueue pq;
 extern RoundRobinQueue rrq;
 extern RunningProcessesHolder rpholder;
 
-boolean enqueue(struct proc *p) {
-    switch (policy) {
-        case RR:
-            return rrq.enqueue(p);
-        case PR:
-            return pq.put(p);
-        default:
-            return false;
-    }
-}
-
-struct proc *dequeue() {
-    switch (policy) {
-        case RR:
-            return rrq.dequeue();
-        case PR:
-            return pq.extractMin();
-        default:
-            return 0;
-    }
-}
-
-boolean isEmpty() {
-    switch (policy) {
-        case RR:
-            return rrq.isEmpty();
-        case PR:
-            return pq.isEmpty();
-        default:
-            return 0;
-    }
-}
-
-void init_accumulator(struct proc *p) {
-    long long tmp1;
-    long long tmp2;
-    if (isEmpty()) {
-        p->accumulator = 0;
-    } else {
-        pq.getMinAccumulator(&tmp1);
-        rpholder.getMinAccumulator(&tmp2);
-        if (tmp1 < tmp2)
-            p->accumulator = tmp1;
-        else p->accumulator = tmp2;
-    }
-}
-
 long long getAccumulator(struct proc *p) {
-    //Implement this function, remove the panic line.
-    panic("getAccumulator: not implemented\n");
+    return p->accumulator;
 }
 
 struct {
@@ -83,6 +38,59 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+boolean enqueue(struct proc *p) {
+    switch (policy) {
+        case RR:
+            return rrq.enqueue(p);
+        case PR:
+            return pq.put(p);
+        case EPR:
+            return pq.put(p);
+        default:
+            return rrq.enqueue(p);
+    }
+}
+
+struct proc *dequeue() {
+    switch (policy) {
+        case RR:
+            return rrq.dequeue();
+        case PR:
+            return pq.extractMin();
+        case EPR:
+            return pq.extractMin();
+        default:
+            return rrq.dequeue();
+    }
+}
+
+boolean isEmpty() {
+    switch (policy) {
+        case RR:
+            return rrq.isEmpty();
+        case PR:
+            return pq.isEmpty();
+        case EPR:
+            return pq.isEmpty();
+        default:
+            return rrq.isEmpty();
+    }
+}
+
+void init_accumulator(struct proc *p) {
+    long long tmp1;
+    long long tmp2;
+    if (isEmpty()) {
+        p->accumulator = 0;
+    } else {
+        pq.getMinAccumulator(&tmp1);
+        rpholder.getMinAccumulator(&tmp2);
+        if (tmp1 < tmp2)
+            p->accumulator = tmp1;
+        else p->accumulator = tmp2;
+    }
+}
 
 void
 pinit(void) {
@@ -176,6 +184,8 @@ allocproc(void) {
     return p;
 }
 
+struct proc *get_runnable_p();
+
 //PAGEBREAK: 32
 // Set up first user process.
 void
@@ -210,13 +220,38 @@ userinit(void) {
 
     p->state = RUNNABLE;
 
-    priority(5);
+    p->wait_start = time_quant;
+
+//    cprintf("USERINIT process %d wait time: %d\n",p->pid, p->wait_start);
+
+    p->priority = 5;
 
     init_accumulator(p);
 
     enqueue(p);
 
     release(&ptable.lock);
+}
+
+struct proc *get_runnable_p() {
+    if (policy == EPR && time_quant % 100 == 0 && time_quant!=0) {
+        struct proc *tmp_p;
+        struct proc *p=0;
+        long long max_wait = -1;
+
+        for (tmp_p = ptable.proc; tmp_p < &ptable.proc[NPROC]; tmp_p++) {
+            if (tmp_p->state == RUNNABLE) {
+                if ((time_quant - tmp_p->wait_start) > max_wait) {
+                    max_wait = time_quant - tmp_p->wait_start;
+                    p = tmp_p;
+                }
+            }
+        }
+        pq.extractProc(p);
+        return p;
+    }
+    else
+        return dequeue();
 }
 
 // Grow current process's memory by n bytes.
@@ -279,6 +314,7 @@ fork(void) {
     acquire(&ptable.lock);
 
     np->state = RUNNABLE;
+    np->wait_start = time_quant;
     np->priority = 5;
     init_accumulator(np);
     enqueue(np);
@@ -423,21 +459,12 @@ scheduler(void) {
 
         // Loop over process table looking for process to run.
         acquire(&ptable.lock);
-
         if (!isEmpty()) {
-            p = dequeue();
-            cprintf("dequeue: %d\n", p->pid);
-//    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-//      if(p->state != RUNNABLE)
-//        continue;
-
-            // Switch to chosen process.  It is the process's job
-            // to release ptable.lock and then reacquire it
-            // before jumping back to us.
+            p = get_runnable_p();
             c->proc = p;
             switchuvm(p);
             p->state = RUNNING;
-
+            p->wait_start = 0;
             // add RUNNING process to running process holder
             rpholder.add(p);
 
@@ -482,11 +509,17 @@ sched(void) {
 void
 yield(void) {
     acquire(&ptable.lock);  //DOC: yieldlock
+    time_quant++;
+//    cprintf("time quant: %d\n", time_quant);
     myproc()->state = RUNNABLE;
+    myproc()->wait_start = time_quant;
+//    cprintf("YIELD p %d started waiting at: %d\n", myproc()->pid, myproc()->wait_start);
     enqueue(myproc());
 
-    cprintf("yield process: %d\n", myproc()->pid);
+    myproc()->accumulator += myproc()->priority;
+
     rpholder.remove(myproc());
+
     sched();
     release(&ptable.lock);
 }
@@ -560,6 +593,7 @@ wakeup1(void *chan) {
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
         if (p->state == SLEEPING && p->chan == chan) {
             p->state = RUNNABLE;
+            p->wait_start = time_quant;
             init_accumulator(p);
             enqueue(p);
         }
@@ -571,6 +605,7 @@ wakeup(void *chan) {
     acquire(&ptable.lock);
     wakeup1(chan);
     release(&ptable.lock);
+
 }
 
 // Kill the process with the given pid.
@@ -579,7 +614,6 @@ wakeup(void *chan) {
 int
 kill(int pid) {
     struct proc *p;
-
     acquire(&ptable.lock);
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
         if (p->pid == pid) {
@@ -587,6 +621,8 @@ kill(int pid) {
             // Wake process from sleep if necessary.
             if (p->state == SLEEPING) {
                 p->state = RUNNABLE;
+                p->wait_start = time_quant;
+//                cprintf("KILL p %d started waiting at: %d\n", p->pid, p->wait_start);
                 init_accumulator(p);
                 enqueue(p);
             }
@@ -636,6 +672,9 @@ procdump(void) {
 
 void
 priority(int priority) {
+    if (policy == PR) {
+        if (priority > 10 || priority < 1) panic("Illegal priority params");
+    }
     struct proc *p = myproc();
     p->priority = priority;
 }
