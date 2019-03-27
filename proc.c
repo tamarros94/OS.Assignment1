@@ -678,7 +678,9 @@ procdump(void) {
 void
 priority(int priority) {
     if (curr_policy == PR) {
-        if (priority > 10 || priority < 1) panic("Illegal priority params");
+        if (priority > 10 || priority < 1) {
+            return;
+        }
     }
     struct proc *p = myproc();
     p->priority = priority;
