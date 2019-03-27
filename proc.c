@@ -158,6 +158,11 @@ allocproc(void) {
     p->state = EMBRYO;
     p->pid = nextpid++;
 
+    p->ctime = ticks;
+    p->retime = 0;
+    p->rutime = 0;
+    p->stime = 0;
+
     release(&ptable.lock);
 
     // Allocate kernel stack.
@@ -200,6 +205,7 @@ userinit(void) {
         panic("userinit: out of memory?");
     inituvm(p->pgdir, _binary_initcode_start, (int) _binary_initcode_size);
     p->sz = PGSIZE;
+    p->ctime = ticks;
     memset(p->tf, 0, sizeof(*p->tf));
     p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
     p->tf->ds = (SEG_UDATA << 3) | DPL_USER;
@@ -332,8 +338,6 @@ exit(int status) {
     struct proc *p;
     int fd;
 
-    curproc->status = status;
-
     if (curproc == initproc)
         panic("init exiting");
 
@@ -363,7 +367,8 @@ exit(int status) {
                 wakeup1(initproc);
         }
     }
-
+    curproc->status = status;
+    curproc->ttime = ticks;
     // Jump into the scheduler, never to return.
     curproc->state = ZOMBIE;
     rpholder.remove(curproc);
@@ -397,11 +402,16 @@ wait(int *status) {
                 p->parent = 0;
                 p->name[0] = 0;
                 p->killed = 0;
+                p->ctime = 0;
+                p->ttime = 0;
+                p->stime = 0;
+                p->retime = 0;
+                p->rutime = 0;
                 p->state = UNUSED;
-                release(&ptable.lock);
                 if (status != 0) {
                     *status = p->status;
                 }
+                release(&ptable.lock);
                 return pid;
             }
         }
@@ -422,20 +432,16 @@ detach(int pid) {
     struct proc *curproc = myproc();
     struct proc *p;
 
-    int found_child = 0;
-
-    // Pass abandoned children to init.
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
         if (p->pid == pid && p->parent == curproc) {
-            found_child = 1;
-            p->parent = initproc;
-            if (p->state == ZOMBIE)
-                return -1;
-
+            if (p->state != ZOMBIE) {
+                p->parent = initproc;
+                p->ttime = ticks;
+                return p->status;
+            } else return -1;
         }
     }
-    if (found_child == 0) return -1;
-    return 0;
+    return -1;
 }
 
 //PAGEBREAK: 42
@@ -702,5 +708,75 @@ policy(int policy) {
             rrq.switchToPriorityQueuePolicy();
     }
     curr_policy = policy;
+    release(&ptable.lock);
+}
+
+// Wait for a child process to exit and return its pid.
+// Return -1 if this process has no children.
+int wait_stat(int *status, struct perf *perfPtr) {
+    struct proc *p;
+    int havekids, pid;
+
+    acquire(&ptable.lock);
+    for (;;) {
+        // Scan through table looking for exited children.
+        havekids = 0;
+        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+            if (p->parent != myproc())
+                continue;
+            havekids = 1;
+            if (p->state == ZOMBIE) {
+                if (status != 0) {
+                    *status = p->status;
+                }
+                perfPtr->ctime = p->ctime;
+                perfPtr->ttime = p->ttime;
+                perfPtr->stime = p->stime;
+                perfPtr->retime = p->retime;
+                perfPtr->rutime = p->rutime;
+
+                // Found one.
+                pid = p->pid;
+                kfree(p->kstack);
+                p->kstack = 0;
+                freevm(p->pgdir);
+                p->pid = 0;
+                p->parent = 0;
+                p->name[0] = 0;
+                p->killed = 0;
+                p->ctime = 0;
+                p->ttime = 0;
+                p->stime = 0;
+                p->retime = 0;
+                p->rutime = 0;
+
+                p->state = UNUSED;
+                release(&ptable.lock);
+                return pid;
+            }
+        }
+
+        // No point waiting if we don't have any children.
+        if (!havekids || myproc()->killed) {
+            release(&ptable.lock);
+            return -1;
+        }
+
+        // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+        sleep(myproc(), &ptable.lock);  //DOC: wait-sleep
+    }
+}
+
+void incCounters(void) {
+    struct proc *p;
+    acquire(&ptable.lock);
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if (p->state == SLEEPING)
+            p->stime++;
+        if (p->state == RUNNABLE)
+            p->retime++;
+        if (p->state == RUNNING)
+            p->rutime++;
+    }
     release(&ptable.lock);
 }

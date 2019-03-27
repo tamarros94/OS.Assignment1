@@ -57,6 +57,11 @@ struct proc {
     long long accumulator;
     int priority;
     long long wait_start;
+    int ctime;                   // Procedure creation tick
+    int ttime;                   // Procedure termination tick
+    int stime;                   // Procedure total SLEEPING tick count
+    int retime;                  // Procedure total READY (RUNNABLE) tick count
+    int rutime;                  // Procedure total RUNNING tick count
 };
 
 // Process memory is laid out contiguously, low addresses first:

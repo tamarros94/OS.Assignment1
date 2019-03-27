@@ -93,7 +93,7 @@ look_in_path(struct execcmd *ecmd) {
                     new_cmd[path_size + k] = ecmd->argv[0][k];
                     k++;
                 }
-
+                printf(2, "cmd: %s\n", new_cmd);
                 exec(new_cmd, ecmd->argv);
                 memset(curr_path, 0, 1024);
                 memset(new_cmd, 0, 1024);
