@@ -69,6 +69,7 @@ look_in_path(struct execcmd *ecmd) {
         close(fd);
 
         buf[ret] = 0x00;
+        printf(1, "path: %s\n", buf);
         int i = 0;
         int path_start = 0;
         static char curr_path[1024];
@@ -83,7 +84,7 @@ look_in_path(struct execcmd *ecmd) {
                 int j = path_start;
                 int path_size = 0;
                 while (j < i) {
-                    new_cmd[0] = curr_path[j];
+                    new_cmd[path_size] = curr_path[j];
                     j++;
                     path_size++;
                 }
@@ -93,7 +94,7 @@ look_in_path(struct execcmd *ecmd) {
                     new_cmd[path_size + k] = ecmd->argv[0][k];
                     k++;
                 }
-                printf(2, "cmd: %s\n", new_cmd);
+                printf(1, "cmd: %s\n", new_cmd);
                 exec(new_cmd, ecmd->argv);
                 memset(curr_path, 0, 1024);
                 memset(new_cmd, 0, 1024);
@@ -270,6 +271,7 @@ execcmd(void) {
 struct cmd *
 redircmd(struct cmd *subcmd, char *file, char *efile, int mode, int fd) {
     struct redircmd *cmd;
+
 
     cmd = malloc(sizeof(*cmd));
     memset(cmd, 0, sizeof(*cmd));
